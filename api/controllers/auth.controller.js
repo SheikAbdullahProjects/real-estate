@@ -1,6 +1,7 @@
 import pool from "../db.js";
 import bcrypt from "bcryptjs";
 import { errorHandler } from "../utils/error.js";
+import jwt from "jsonwebtoken";
 
 export const signUp = async (req, res, next) => {
   try {
@@ -34,6 +35,42 @@ export const signUp = async (req, res, next) => {
         username,
         email,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const signIn = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return next(errorHandler(400, "All fields are required"));
+    }
+    const [userexisting] = await pool.query(
+      "SELECT * FROM users WHERE email = ?",
+      [email]
+    );
+    if (userexisting.length === 0) {
+      return next(errorHandler(404, "User not found"));
+    }
+    const isMatch = await bcrypt.compare(password, userexisting[0].password);
+    if (!isMatch) {
+      return next(errorHandler(401, "Invalid credentials"));
+    }
+    const token = jwt.sign({ id: userexisting[0].id }, process.env.SECRET_KEY, {
+      expiresIn: "14d",
+    });
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      maxAge: 14 * 24 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    const { password: pwd, ...user } = userexisting[0];
+    res.status(200).json({
+      success: true,
+      user,
     });
   } catch (error) {
     next(error);
