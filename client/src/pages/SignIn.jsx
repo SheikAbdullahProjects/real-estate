@@ -1,18 +1,24 @@
-import React, { useState } from 'react'
-import axiosInstance from '../utils/axiosInstance';
-import toast from 'react-hot-toast';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import axiosInstance from "../utils/axiosInstance";
+import toast from "react-hot-toast";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  signInStart,
+  signInSuccess,
+  signInFailure,
+} from "../redux/user/userSlice";
+import Oauth from "../components/Oauth";
 
 const Signin = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const { loading, error } = useSelector((state) => state.user);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -20,34 +26,32 @@ const Signin = () => {
     });
   };
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    dispatch(signInStart());
 
     try {
       const res = await axiosInstance.post("/auth/sign-in", formData);
-      if(!res.data.success){
-        throw new Error(res.data.message);
+      if (!res.data.success) {
+        dispatch(signInFailure(res.data.message));
       }
-      console.log(res.data);
       toast.success("Logged in successfully!");
+      dispatch(signInSuccess(res.data.user));
       navigate("/");
     } catch (err) {
       console.error(err);
-      setError(
-        err.response?.data?.message || "Something went wrong. Please try again."
+      dispatch(
+        signInFailure(
+          err.response?.data?.message ||
+            "Something went wrong. Please try again."
+        )
       );
-    } finally {
-      setLoading(false);
     }
   };
   return (
     <div className="p-3 max-w-lg mx-auto">
       <h1 className="text-3xl text-center font-semibold my-7">Sign In</h1>
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-
         <input
           type="text"
           placeholder="email"
@@ -68,6 +72,7 @@ const Signin = () => {
         >
           {loading ? "Loading..." : "Sign In"}
         </button>
+        <Oauth />
         {error && (
           <p className="text-red-500 text-center font-medium mt-2">{error}</p>
         )}
@@ -79,7 +84,7 @@ const Signin = () => {
         </Link>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Signin
+export default Signin;
